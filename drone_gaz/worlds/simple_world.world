@@ -1,0 +1,25 @@
+<!-- Simple world -->
+
+<?xml version="1.0"?>
+  <sdf version="1.7">
+    <world name="simple_world">
+
+    <!--A ground plane-->
+    <include>
+      <uri>model://ground_plane</uri>
+    </include>
+
+    <!--A global light source-->
+    <!-- <include>
+      <uri>model://sun</uri>
+    </include> -->
+
+    <scene>
+      <!-- Replace the light source (sun) by am ambient light -->
+      <ambient>0.8 0.8 0.8 1.0</ambient>
+      <!-- Remove shadows -->
+      <shadows>0</shadows>
+    </scene>
+
+    </world>
+  </sdf>

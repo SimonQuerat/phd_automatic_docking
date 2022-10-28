@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 <sdf version="1.7">
   <model name="iris_demo">
-    <include>
+    <include> <!-- inclusion du fichier .sdf qui défini la géométrie -->
       <uri>model://iris_with_standoffs</uri>
     </include>
 
@@ -382,7 +382,9 @@
     </link>
     -->
 
-    <!-- plugins -->
+    <!-- PLUGINS -->
+
+    <!-- physique des hélices, modèle BEM ?? -->
     <plugin name="rotor_0_blade_1" filename="libLiftDragPlugin.so">
       <a0>0.3</a0>
       <alpha_stall>1.4</alpha_stall>
@@ -580,6 +582,8 @@
       <upward>0 0 1</upward>
       <link_name>iris::rotor_5</link_name>
     </plugin>
+
+    <!-- Ardupilot, ports de communication et contrôle des moteurs -->
     <plugin name="arducopter_plugin" filename="libArduPilotPlugin.so">
       <fdm_addr>127.0.0.1</fdm_addr>
       <fdm_port_in>9002</fdm_port_in>

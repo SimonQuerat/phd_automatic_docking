@@ -1,0 +1,8 @@
+<?xml version="1.0" ?>
+<launch>
+    <arg name="init_pose"/>
+
+    <node name="spawner" pkg="gazebo_ros" type="spawn_model" output="screen"
+	    args="-sdf -model iris_demo $(arg init_pose) -file $(find drone_gazebo)/models/iris_with_ardupilot/model.sdf"/>
+	    
+</launch>

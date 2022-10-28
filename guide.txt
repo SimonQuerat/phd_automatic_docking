@@ -1,0 +1,13 @@
+--> roscore #lancer noeud ROS master
+
+--> roslaunch docking drone_world.launch #lancer le monde gazebo +drone+plateforme
+
+--> rosrun platform_control sinusoid_pos.py #lancer le noeud ROS qui contrôle en position la plateforme
+
+--> sim_vehicle.py -v ArduCopter -f gazebo_iris --console #lancer ardupilot pour le drone
+
+--> roslaunch drone_control APM.launch #lance le noeuds mavros qui est l'interface entre les commandes de l'utilisateur et les commande mavlink pour ardupilot
+
+--> rosrun drone_gazebo camera_view.py #Affichage caméra
+
+--> rosservice call /mobile_platform/reset_joints true #appeler le service qui reset la position de la plateforme

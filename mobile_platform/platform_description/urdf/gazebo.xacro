@@ -1,0 +1,67 @@
+<?xml version="1.0"?>
+<robot>
+
+    <!-- Disable gravity for the platform -->
+    <gazebo reference="board_link">
+        <gravity>0</gravity>
+    </gazebo>
+    
+    <gazebo reference="base_roll_link">
+        <gravity>0</gravity>
+    </gazebo>
+
+    <gazebo reference="base_pitch_link">
+        <gravity>0</gravity>
+    </gazebo>
+
+    <gazebo reference="base_yaw_link">
+        <gravity>0</gravity>
+    </gazebo>
+
+    <gazebo reference="base_tx_link">
+        <gravity>0</gravity>
+    </gazebo>
+
+    <gazebo reference="base_ty_link">
+        <gravity>0</gravity>
+    </gazebo>
+
+    <gazebo reference="base_tz_link">
+        <gravity>0</gravity>
+    </gazebo>
+
+    <!-- Add texture/colors to links -->
+    <gazebo reference="board_link">
+        <material>PlatformPattern</material>
+    </gazebo>
+
+    <!-- ros_control model plugin -->
+    <gazebo>
+        <plugin name="gazebo_ros_control" filename="libgazebo_ros_control.so">
+            <robotNamespace>/mobile_platform</robotNamespace>
+        </plugin>
+    </gazebo>
+
+    <!-- Add an IMU to the platform -->
+    <gazebo reference="board_link">
+        <gravity>false</gravity>
+        <sensor name="imu_sensor" type="imu">
+            <always_on>true</always_on>
+            <update_rate>100</update_rate>
+            <visualize>true</visualize>
+            <topic>__default_topic__</topic>
+            <plugin filename="libgazebo_ros_imu_sensor.so" name="imu_plugin">
+                <topicName>imu</topicName>
+                <bodyName>board_link</bodyName>
+                <updateRateHZ>10.0</updateRateHZ>
+                <gaussianNoise>0.0</gaussianNoise>
+                <xyzOffset>0 0 0</xyzOffset>
+                <rpyOffset>0 0 0</rpyOffset>
+                <frameName>board_link</frameName>
+                <initialOrientationAsReference>false</initialOrientationAsReference>
+            </plugin>
+            <pose>0 0 0 0 0 0</pose>
+        </sensor>
+    </gazebo>
+
+</robot>

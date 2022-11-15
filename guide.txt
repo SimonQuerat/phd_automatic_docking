@@ -6,7 +6,7 @@
 
 --> sim_vehicle.py -v ArduCopter -f gazebo_iris --console #lancer ardupilot pour le drone
 
---> roslaunch drone_control APM.launch #lance le noeuds mavros qui est l'interface entre les commandes de l'utilisateur et les commande mavlink pour ardupilot
+--> roslaunch drone_control apm.launch #lance le noeuds mavros qui est l'interface entre les commandes de l'utilisateur et les commande mavlink pour ardupilot
 
 --> rosrun drone_gazebo camera_view.py #Affichage caméra
 

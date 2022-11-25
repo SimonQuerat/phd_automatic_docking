@@ -24,7 +24,7 @@
         <include file="$(find platform_control)/launch/mobile_platform_control.launch"/>
     </group>
 
-    <!-- DRONE -->
+    <!--  DRONE -->
     <include file="$(find drone_gazebo)/launch/drone_spawn.launch">
     <arg name="init_pose" value="-x -1.5 -y 0 -z 0 -R 0 -P 0 -Y 1.57" />
     </include>

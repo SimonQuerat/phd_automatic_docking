@@ -2,36 +2,24 @@
 
 # ROS - Python librairies
 import rospy
-
-# cv_bridge is used to convert ROS Image message type into OpenCV images
-import cv_bridge
+from tf.transformations import quaternion_matrix
 
 # Import useful ROS types
 from sensor_msgs.msg import Image, CameraInfo
 from geometry_msgs.msg import TwistStamped
+from drone_control.msg import MarkerPose
 
 # Python librairies
 import numpy as np
 import cv2
 import cv2.aruco as aruco
-import math
+from math import *
 import time
 
-#--- Define the aruco dictionary
-aruco_dict  = aruco.getPredefinedDictionary(aruco.DICT_ARUCO_ORIGINAL)
-parameters  = aruco.DetectorParameters_create()
-
-#-- Font for the text in the image
-font = cv2.FONT_HERSHEY_PLAIN
-
-
-class CameraView:
+class IBVS:
     def __init__(self):
         """Constructor of the class
-        """
-        # Initialize the bridge between ROS and OpenCV images
-        self.bridge = cv_bridge.CvBridge()
-        
+        """  
         #--- 180 deg rotation matrix around the x axis
         self.R_flip  = np.zeros((3,3), dtype=np.float32)
         self.R_flip[0,1] = -1.0
@@ -49,7 +37,6 @@ class CameraView:
         # print(self.camera_distortion)
 
         #--- Define Tag
-        self.id_to_find  = 72
         self.marker_size  = 1 #- [m]
         self.corners_tag=np.array([[-self.marker_size/2, self.marker_size/2, 0], [self.marker_size/2, self.marker_size/2, 0], 
                     [self.marker_size/2, -self.marker_size/2, 0], [-self.marker_size/2, -self.marker_size/2, 0]])
@@ -103,11 +90,11 @@ class CameraView:
         self.dt=1/50
 
         # Souscrire au topic image_raw
-        self.sub_image = rospy.Subscriber("camera1/image_raw", Image,
-                                          self.callback_image, queue_size=1)
+        self.sub_pose = rospy.Subscriber("marker_pose", MarkerPose,
+                                          self.callback_pose, queue_size=1)
 
         # Souscrire au topic velocity_body
-        self.sub_velocity2 = rospy.Subscriber("/mavros/local_position/velocity_body", TwistStamped,
+        self.sub_velocity = rospy.Subscriber("/mavros/local_position/velocity_body", TwistStamped,
                                             self.callback_velocity, queue_size=1)
 
         # Publier sur le topic cmd_vel
@@ -122,92 +109,63 @@ class CameraView:
         self.V_est=np.array([[msg.twist.linear.x],[msg.twist.linear.y],[msg.twist.linear.z],
                         [msg.twist.angular.x],[msg.twist.angular.y],[msg.twist.angular.z]])
 
-    def callback_image(self, msg):
+    def callback_pose(self, msg):
         """Function called each time a new ros Image message is received on
         the camera1/image_raw topic
         Args:
             msg (sensor_msgs/Image): a ROS image sent by the camera
         """
-        # Convert the ROS Image into the OpenCV format
-        # global image
-        image = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
+        #-- Obtain the and translation vector and rotation angles (quaternion)
+        tvec=np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
+        rvec=np.array([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z])*msg.pose.orientation.w
 
-        #cv2.imwrite("image.png", image)
-        gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY) #-- remember, OpenCV stores color images in Blue, Green, Red
+        #-- Obtain the rotation matrix tag->camera
+        R_ct    = np.matrix(cv2.Rodrigues(rvec)[0])
+        R_tc    = R_ct.T
 
-        #-- Find all the aruco markers in the image
-        corners, ids, rejected = aruco.detectMarkers(image=gray, dictionary=aruco_dict, parameters=parameters, 
-                                cameraMatrix=self.camera_matrix, distCoeff=self.camera_distortion)
+        #-- Obtain the corners position in the image
+        corners=np.reshape(np.array([msg.corners]), (4, 2), 'C')
+        
+        #-- calcul de la matrice d'intération courante et du vecteur erreur
+        s=np.dot(self.camera_matrix_inv, np.concatenate((corners.T, np.array([[1, 1, 1, 1]])), axis=0)) #positions courantes des coins du marqueurs dans le plan image         
+        Z=np.diag(np.dot((1/s).T, np.dot(R_tc, self.corners_tag.T)+np.array([tvec]).T)/3) #position Z des coins du marqueurs dans le repère caméra
 
-        if ids is not None and ids[0] == self.id_to_find:
-            #-- ret = [rvec, tvec, ?]
-            #-- array of rotation and position of each marker in camera image
-            #-- rvec = [[rvec_1], [rvec_2], ...]    attitude of the marker respect to camera image
-            #-- tvec = [[tvec_1], [tvec_2], ...]    position of the marker in camera image
+        self.L_courante[0:7:2, 0]=-1/Z #mise à jour de la matrice d'interaction à partir des mesures images
+        self.L_courante[0:7:2, 2]=s[0,:]/Z
+        self.L_courante[0:7:2, 3]=s[0,:]*s[1,:]
+        self.L_courante[0:7:2, 4]=-(1+s[0,:]**2)
+        self.L_courante[0:7:2, 5]=s[1,:]
+        self.L_courante[1:8:2, 1]=-1/Z
+        self.L_courante[1:8:2, 2]=s[1,:]/Z
+        self.L_courante[1:8:2, 3]=1+s[1,:]**2
+        self.L_courante[1:8:2, 4]=-s[0,:]*s[1,:]
+        self.L_courante[1:8:2, 5]=-s[0,:]           
 
-            ret = aruco.estimatePoseSingleMarkers(corners, self.marker_size, self.camera_matrix, self.camera_distortion)
+        #-- calcul de la matrice d'intéraction
+        self.L=self.p*self.L_courante+(1-self.p)*self.L_finale
 
-            #-- Unpack the output, get only the first
-            rvec, tvec = ret[0][0,0,:], ret[1][0,0,:]
+        s=np.reshape(s[0:2,:], (8,1), 'F') #mise en format vecteur de s
 
-            #-- Draw the detected marker and put a reference image over it
-            aruco.drawDetectedMarkers(image, corners)
-            aruco.drawAxis(image, self.camera_matrix, self.camera_distortion, rvec, tvec, 1)
+        e=s-self.s_des #erreur courante
+        L_TRC=np.concatenate((self.L[:,:3],self.L[:,5:6]),axis=1)
+        L_TRC_inv=np.linalg.pinv(L_TRC)
+        e_dérivée=(e-self.e)/self.dt
+        self.e=e          #erreur précédente  
+        V_est_cam=np.reshape(np.dot(self.R_flip, np.reshape(self.V_est, (3,2), 'F')), (6,1), 'F') #vitesse drone repère caméra
+        e_dérivée_partielle_temps=e_dérivée-np.dot(self.L_courante, V_est_cam)
 
-            #-- Print the tag position in camera image
-            global font
-            str_position = "MARKER Position x=%4.0f  y=%4.0f  z=%4.0f"%(tvec[0], tvec[1], tvec[2])
-            cv2.putText(image, str_position, (0, 100), font, 1, (0, 255, 0), 2, cv2.LINE_AA)
+        V_cmd=-self.Lambda*np.dot(L_TRC_inv, e)-np.dot(L_TRC_inv, e_dérivée_partielle_temps) #commande en vitesse
+        V_cmd[0:3,0]=np.dot(V_cmd[0:3,0], self.R_flip) #possage du repère caméra au repère drone FLU
+        V_cmd[3,0]=-V_cmd[3,0]
+        V_cmd_ros=TwistStamped() #commande en vitesse pour envoi sur le topic cmd_vel
+        V_cmd_ros.twist.linear.x=V_cmd[0,0]
+        V_cmd_ros.twist.linear.y=V_cmd[1,0]
+        V_cmd_ros.twist.linear.z=V_cmd[2,0]
+        V_cmd_ros.twist.angular.z=V_cmd[3,0]
 
-            #-- Obtain the rotation matrix tag->camera
-            R_ct    = np.matrix(cv2.Rodrigues(rvec)[0])
-            R_tc    = R_ct.T
-            
-            #-- calcul de la matrice d'intération courante et du vecteur erreur
-            s=np.dot(self.camera_matrix_inv, np.concatenate((corners[0][0].T, np.array([[1, 1, 1, 1]])), axis=0)) #positions courantes des coins du marqueurs dans le plan image         
-            Z=np.diag(np.dot((1/s).T, np.dot(R_tc, self.corners_tag.T)+np.array([tvec]).T)/3) #position Z des coins du marqueurs dans le repère caméra
+        self.pub_velocity_cmd.publish(V_cmd_ros)           
 
-            self.L_courante[0:7:2, 0]=-1/Z #mise à jour de la matrice d'interaction à partir des mesures images
-            self.L_courante[0:7:2, 2]=s[0,:]/Z
-            self.L_courante[0:7:2, 3]=s[0,:]*s[1,:]
-            self.L_courante[0:7:2, 4]=-(1+s[0,:]**2)
-            self.L_courante[0:7:2, 5]=s[1,:]
-            self.L_courante[1:8:2, 1]=-1/Z
-            self.L_courante[1:8:2, 2]=s[1,:]/Z
-            self.L_courante[1:8:2, 3]=1+s[1,:]**2
-            self.L_courante[1:8:2, 4]=-s[0,:]*s[1,:]
-            self.L_courante[1:8:2, 5]=-s[0,:]           
-
-            #-- calcul de la matrice d'intéraction
-            self.L=self.p*self.L_courante+(1-self.p)*self.L_finale
  
-            s=np.reshape(s[0:2,:], (8,1), 'F') #mise en format vecteur de s
-
-            e=s-self.s_des #erreur courante
-            L_TRC=np.concatenate((self.L[:,:3],self.L[:,5:6]),axis=1)
-            L_TRC_inv=np.linalg.pinv(L_TRC)
-            e_dérivée=(e-self.e)/self.dt
-            self.e=e          #erreur précédente  
-            V_est_cam=np.reshape(np.dot(self.R_flip, np.reshape(self.V_est, (3,2), 'F')), (6,1), 'F') #vitesse drone repère caméra
-            e_dérivée_partielle_temps=e_dérivée-np.dot(self.L_courante, V_est_cam)
-
-            V_cmd=-self.Lambda*np.dot(L_TRC_inv, e)-np.dot(L_TRC_inv, e_dérivée_partielle_temps) #commande en vitesse
-            V_cmd[0:3,0]=np.dot(V_cmd[0:3,0], self.R_flip) #possage du repère caméra au repère drone FLU
-            V_cmd[3,0]=-V_cmd[3,0]
-            V_cmd_ros=TwistStamped() #commande en vitesse pour envoi sur le topic cmd_vel
-            V_cmd_ros.twist.linear.x=V_cmd[0,0]
-            V_cmd_ros.twist.linear.y=V_cmd[1,0]
-            V_cmd_ros.twist.linear.z=V_cmd[2,0]
-            V_cmd_ros.twist.angular.z=V_cmd[3,0]
-
-            self.pub_velocity_cmd.publish(V_cmd_ros)           
-
-        # Display the image
-        cv2.imshow("Preview", image)
-        cv2.waitKey(1)
- 
-
-
         
 # Main program
 # The "__main__" flag acts as a shield to avoid these lines to be executed if
@@ -217,7 +175,7 @@ if __name__ == "__main__":
     rospy.init_node("IBVS")
 
     # Instantiate an object
-    camera_view = CameraView()
+    IBVS = IBVS()
 
     # Run the node until Ctrl + C is pressed
     rospy.spin()

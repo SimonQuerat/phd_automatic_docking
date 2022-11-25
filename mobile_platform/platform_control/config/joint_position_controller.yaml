@@ -33,29 +33,29 @@ mobile_platform:
     tx_joint:
       p: 10.0
       i: 0.01
-      d: 1.0
+      d: 1
 
     ty_joint:
       p: 10.0
       i: 0.01
-      d: 1.0
+      d: 1
       
     tz_joint:
       p: 10.0
       i: 0.01
-      d: 1.0
+      d: 1
 
     roll_joint:
       p: 10.0
       i: 0.01
-      d: 1.0
+      d: 1
 
     pitch_joint:
       p: 10.0
       i: 0.01
-      d: 1.0
+      d: 1
 
     yaw_joint:
       p: 10.0
       i: 0.01
-      d: 1.0
+      d: 1

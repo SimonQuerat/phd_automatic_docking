@@ -1,32 +1,45 @@
 POUR LANCER LA SIMULATION :
 
-roscore #lancer noeud ROS master
+#lancer noeud ROS master
+roscore 
 
-roslaunch docking drone_world.launch #lancer le monde gazebo +drone+plateforme
+#lancer le monde gazebo +drone+plateforme
+roslaunch docking drone_world.launch 
 
-rosrun platform_control sinusoid_pos.py #lancer le noeud ROS qui contrôle en position la plateforme
+#lancer le noeud ROS qui contrôle en position la plateforme
+rosrun platform_control sinusoid_pos.py 
 
-rosservice call /mobile_platform/reset_joints true #appeler le service qui reset la position de la plateforme
+#appeler le service qui reset la position de la plateforme
+rosservice call /mobile_platform/reset_joints true 
 
-sim_vehicle.py -v ArduCopter -f gazebo-iris --console -m --streamrate=20 #lancer ardupilot pour le drone
+#lancer ardupilot pour le drone
+sim_vehicle.py -v ArduCopter -f gazebo-iris --console -m --streamrate=20 
 
-roslaunch drone_control apm.launch #lance le noeuds mavros qui est l'interface entre les commandes de l'utilisateur et les commande mavlink pour ardupilot
+#lance le noeuds mavros qui est l'interface entre les commandes de l'utilisateur et les commande mavlink pour ardupilot
+roslaunch drone_control apm.launch 
 
-rosrun drone_gazebo camera_view.py #Affichage caméra
+#Affichage caméra
+rosrun drone_gazebo camera_view.py 
 
-roslaunch drone_control autopilot.launch #suivi de plateforme IBVS
+#suivi de plateforme IBVS
+roslaunch drone_control autopilot.launch 
 
 COMMANDES ROS :
 
-rostopic list #lister les topics existants
+#lister les topics existants
+rostopic list 
 
-rostopic echo <nom du topic> #affiche les publication du topic dans le terminal
+#affiche les publication du topic dans le terminal
+rostopic echo <nom du topic> 
 
-rostopic hz <nom du topic> #affiche la fréquence de publication du topic
+#affiche la fréquence de publication du topic
+rostopic hz <nom du topic> 
 
-rostopic pub <nom du topic> +tab #publier sur un topic
+#publier sur un topic
+rostopic pub <nom du topic> +tab 
 
-rosservice call <nom du service> +arg #appeler un service
+#appeler un service
+rosservice call <nom du service> +arg 
 
 MODIFICATIONS HORS WORKSPACE :
 

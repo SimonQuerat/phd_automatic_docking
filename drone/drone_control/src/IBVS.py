@@ -37,12 +37,12 @@ class IBVS:
         # print(self.camera_distortion)
 
         #--- Define Tag
-        self.marker_size  = 1 #- [m]
+        self.marker_size  = 1/3 #- [m]
         self.corners_tag=np.array([[-self.marker_size/2, self.marker_size/2, 0], [self.marker_size/2, self.marker_size/2, 0], 
                     [self.marker_size/2, -self.marker_size/2, 0], [-self.marker_size/2, -self.marker_size/2, 0]])
 
         # position désirée des coins du marqueur dans l'image
-        marge=200 #marge en pixels par rapport au bords de l'image
+        marge=350 #marge en pixels par rapport au bords de l'image
         m_des=np.array([[marge], [marge], [800-marge], [marge], [800-marge], [800-marge], [marge], [800-marge]]) #positions désirée en pixels
         self.s_des=np.dot(self.camera_matrix_inv, np.concatenate((np.reshape(m_des, (2, 4), 'F'), np.array([[1, 1, 1, 1]])), axis=0)) #positions désirées dans le plan image
         
@@ -84,12 +84,12 @@ class IBVS:
         self.V_est=np.zeros((6,1))
 
         # coeff asservissement visuel
-        self.Lambda=0.5
+        self.Lambda=1
 
         # pas de temps
-        self.dt=1/50
+        self.dt=1/20
 
-        # Souscrire au topic image_raw
+        # Souscrire au topic marker_pose
         self.sub_pose = rospy.Subscriber("marker_pose", MarkerPose,
                                           self.callback_pose, queue_size=1)
 
@@ -155,7 +155,7 @@ class IBVS:
         e_dérivée_partielle_temps=e_dérivée-np.dot(self.L_courante, V_est_cam)
 
         V_cmd=-self.Lambda*np.dot(L_TRC_inv, e)-np.dot(L_TRC_inv, e_dérivée_partielle_temps) #commande en vitesse
-        V_cmd[0:3,0]=np.dot(V_cmd[0:3,0], self.R_flip) #possage du repère caméra au repère drone FLU
+        V_cmd[0:3,0]=np.dot(V_cmd[0:3,0], self.R_flip) #passage du repère caméra au repère drone FLU
         V_cmd[3,0]=-V_cmd[3,0]
         V_cmd_ros=TwistStamped() #commande en vitesse pour envoi sur le topic cmd_vel
         V_cmd_ros.twist.linear.x=V_cmd[0,0]

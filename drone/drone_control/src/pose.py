@@ -45,7 +45,7 @@ class Pose:
 
         #--- Define Tag
         self.id_to_find  = 72
-        self.marker_size  = 1 #- [m]
+        self.marker_size  = 1/3 #- [m]
 
         # Souscrire au topic image_raw
         self.sub_image = rospy.Subscriber("camera1/image_raw", Image,

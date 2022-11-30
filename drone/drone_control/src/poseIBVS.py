@@ -49,12 +49,12 @@ class CameraView:
 
         #--- Define Tag
         self.id_to_find  = 72
-        self.marker_size  = 1 #- [m]
+        self.marker_size  = 0.5 #- [m]
         self.corners_tag=np.array([[-self.marker_size/2, self.marker_size/2, 0], [self.marker_size/2, self.marker_size/2, 0], 
                     [self.marker_size/2, -self.marker_size/2, 0], [-self.marker_size/2, -self.marker_size/2, 0]])
 
         # position désirée des coins du marqueur dans l'image
-        marge=200 #marge en pixels par rapport au bords de l'image
+        marge=-200 #marge en pixels par rapport au bords de l'image
         m_des=np.array([[marge], [marge], [800-marge], [marge], [800-marge], [800-marge], [marge], [800-marge]]) #positions désirée en pixels
         self.s_des=np.dot(self.camera_matrix_inv, np.concatenate((np.reshape(m_des, (2, 4), 'F'), np.array([[1, 1, 1, 1]])), axis=0)) #positions désirées dans le plan image
         

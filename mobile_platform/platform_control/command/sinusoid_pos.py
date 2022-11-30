@@ -4,7 +4,7 @@ import rospy
 import numpy as np
 from std_msgs.msg import Float64
 
-def sinusoid(t, amplitude, frequency):
+def sinusoid(t, amplitude, frequency, phase):
     """Compute the value at time t of a sinusoidal signal
 
     Args:
@@ -15,7 +15,7 @@ def sinusoid(t, amplitude, frequency):
     Returns:
         float: value at time t of the sinusoidal signal
     """
-    return amplitude*np.sin(2*np.pi*frequency*t)
+    return amplitude*np.sin(2*np.pi*frequency*t+phase)
 
 
 if __name__ == "__main__":
@@ -55,25 +55,37 @@ if __name__ == "__main__":
     position_ty = Float64()
     position_tz = Float64()
 
-    # Set the amplitude (radians) and the frequency (Hz) of the sinusoid
-    A = 10*np.pi/180
+    # Set the amplitude (radians), phase (radians) and the frequency (Hz) of the sinusoid
+    A_roll = 15*np.pi/180
+    A_pitch = 10*np.pi/180
+    A_yaw = 5*np.pi/180
+    A_tx = 0.05
+    A_ty = 0.1
+    A_tz = 0.2
     f_roll = 0.25
-    f_pitch = 0.1
+    f_pitch = 0.25
     f_yaw = 0.25
-    f_tx = 0.1
-    f_ty = 0.1
+    f_tx = 0.25
+    f_ty = 0.25
     f_tz = 0.25
+    p_roll = -np.pi/2
+    p_pitch = -np.pi/2
+    p_yaw = -np.pi/2
+    p_tx = -np.pi/2
+    p_ty = -np.pi/2
+    p_tz = 0
     
     # Get the current time to start the sinusoid at 0
     time = rospy.get_time()
     
     while not rospy.is_shutdown():
-        position_roll.data = sinusoid(rospy.get_time() - time, A, f_roll)
-        position_pitch.data = sinusoid(rospy.get_time() - time, A, f_pitch)
-        position_yaw.data = sinusoid(rospy.get_time() - time, A, f_yaw)
-        position_tx.data = sinusoid(rospy.get_time() - time, A, f_tx)
-        position_ty.data = sinusoid(rospy.get_time() - time, A, f_ty)
-        position_tz.data = sinusoid(rospy.get_time() - time, A, f_tz)
+        position_roll.data = sinusoid(rospy.get_time() - time, A_roll, f_roll, p_roll)
+        position_pitch.data = sinusoid(rospy.get_time() - time, A_pitch, f_pitch, p_pitch)
+        position_yaw.data = -sinusoid(rospy.get_time() - time, A_yaw, f_pitch, p_pitch)
+        position_tx.data = sinusoid(rospy.get_time() - time, A_tx, f_tx, p_tx)
+        position_ty.data = -sinusoid(rospy.get_time() - time, A_ty, f_ty, p_ty)
+        position_tz.data = sinusoid(rospy.get_time() - time, A_tz, f_tz, p_tz)
+ 
 
         # Publish the position
         pub_roll.publish(position_roll)

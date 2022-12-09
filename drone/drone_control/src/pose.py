@@ -14,6 +14,7 @@ from sensor_msgs.msg import Image, CameraInfo
 import numpy as np
 import cv2
 import cv2.aruco as aruco
+import tf
 from math import *
 import time
 
@@ -80,8 +81,8 @@ class Pose:
 
             #-- Unpack the output, get only the first
             rvec, tvec = ret[0][0,0,:], ret[1][0,0,:]
-            theta=sqrt(rvec[0]**2+rvec[1]**2+rvec[2]**2)
-
+            theta=sqrt(rvec[0]**2+rvec[1]**2+rvec[2]**2) #angle de rotation (angle-axis representation)
+            
             #-- Draw the detected marker and put a reference image over it
             aruco.drawDetectedMarkers(image, corners)
             aruco.drawAxis(image, self.camera_matrix, self.camera_distortion, rvec, tvec, 1)
@@ -95,10 +96,10 @@ class Pose:
             marker_pose.pose.position.x=tvec[0]
             marker_pose.pose.position.y=tvec[1]
             marker_pose.pose.position.z=tvec[2]
-            marker_pose.pose.orientation.x=rvec[0]/theta
-            marker_pose.pose.orientation.y=rvec[1]/theta
-            marker_pose.pose.orientation.z=rvec[2]/theta
-            marker_pose.pose.orientation.w=theta
+            marker_pose.pose.orientation.x=sin(theta/2)*rvec[0]/theta
+            marker_pose.pose.orientation.y=sin(theta/2)*rvec[1]/theta
+            marker_pose.pose.orientation.z=sin(theta/2)*rvec[2]/theta
+            marker_pose.pose.orientation.w=cos(theta/2)
 
             marker_pose.corners=np.reshape(corners[0][0], (1, 8), 'C').tolist()[0]
 

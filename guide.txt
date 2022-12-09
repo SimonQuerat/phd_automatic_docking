@@ -35,6 +35,9 @@ rostopic echo <nom du topic>
 #affiche la fréquence de publication du topic
 rostopic hz <nom du topic> 
 
+#affiche le type de message
+rostopic type <nom du topic> 
+
 #publier sur un topic
 rostopic pub <nom du topic> +tab 
 

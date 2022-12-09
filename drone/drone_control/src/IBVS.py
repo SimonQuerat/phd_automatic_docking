@@ -5,7 +5,8 @@ import rospy
 from tf.transformations import quaternion_matrix
 
 # Import useful ROS types
-from sensor_msgs.msg import Image, CameraInfo
+from sensor_msgs.msg import Image, CameraInfo, Imu
+
 from geometry_msgs.msg import TwistStamped
 from drone_control.msg import MarkerPose
 
@@ -42,7 +43,7 @@ class IBVS:
                     [self.marker_size/2, -self.marker_size/2, 0], [-self.marker_size/2, -self.marker_size/2, 0]])
 
         # position désirée des coins du marqueur dans l'image
-        marge=350 #marge en pixels par rapport au bords de l'image
+        marge=350 #marge en pixels par rapport au bords de l'image, 350 pour le suivi, -200 pour l'appontage
         m_des=np.array([[marge], [marge], [800-marge], [marge], [800-marge], [800-marge], [marge], [800-marge]]) #positions désirée en pixels
         self.s_des=np.dot(self.camera_matrix_inv, np.concatenate((np.reshape(m_des, (2, 4), 'F'), np.array([[1, 1, 1, 1]])), axis=0)) #positions désirées dans le plan image
         
@@ -84,7 +85,7 @@ class IBVS:
         self.V_est=np.zeros((6,1))
 
         # coeff asservissement visuel
-        self.Lambda=1
+        self.Lambda=0.5 #0.5 pour le suivi, 2 pour l'appontage
 
         # pas de temps
         self.dt=1/20
@@ -97,27 +98,46 @@ class IBVS:
         self.sub_velocity = rospy.Subscriber("/mavros/local_position/velocity_body", TwistStamped,
                                             self.callback_velocity, queue_size=1)
 
+        # Souscrire au topic /mavros/imu/data
+        self.sub_imu = rospy.Subscriber("/mavros/imu/data", Imu,
+                                            self.callback_imu, queue_size=1)
+
         # Publier sur le topic cmd_vel
         self.pub_velocity_cmd = rospy.Publisher("/mavros/setpoint_velocity/cmd_vel", TwistStamped, queue_size=1)
 
     def callback_velocity(self, msg):
-        """Function called each time a new ros velocity message is received on
-        the /mavros/local_position/velocity_body
+        """Function called each time a new mavros velocity message is received on
+        the /mavros/local_position/velocity_body topic
         Args:
-            msg (geometry_msg/TwistStamped): a ROS Twist sent by the drone sensors
+            msg (geometry_msgs/TwistStamped): a ROS Twist sent by the drone sensors
             """
         self.V_est=np.array([[msg.twist.linear.x],[msg.twist.linear.y],[msg.twist.linear.z],
                         [msg.twist.angular.x],[msg.twist.angular.y],[msg.twist.angular.z]])
 
+    def callback_imu(self, msg):
+        """Function called each time a new mavros imu message is received on
+        the /mavros/imu/data topic
+        Args:
+            msg (sensors_msgs/Imu): a mavros Imu sent by the drone sensors
+            """
+        x=msg.orientation.x
+        y=msg.orientation.y
+        z=msg.orientation.z
+        w=msg.orientation.w
+        phi=atan2(2*(w*x+y*z),1-2*(x*2+y*2))
+        theta=asin(2*(w*y-z*x))
+        self.R_vf=np.dot(np.array([[1, 0, 0], [0, cos(phi), -sin(phi)], [0, sin(phi), cos(phi)]]), np.array([[cos(theta), 0, sin(theta)], [0, 1, 0], [-sin(theta), 0, cos(theta)]]))
+
     def callback_pose(self, msg):
         """Function called each time a new ros Image message is received on
-        the camera1/image_raw topic
+        the marker_pose topic
         Args:
-            msg (sensor_msgs/Image): a ROS image sent by the camera
+            msg (drone_control/MarkerPose): markers corners position and pose estimation sent by the pose node
         """
         #-- Obtain the and translation vector and rotation angles (quaternion)
         tvec=np.array([msg.pose.position.x, msg.pose.position.y, msg.pose.position.z])
-        rvec=np.array([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z])*msg.pose.orientation.w
+        theta=2*acos(msg.pose.orientation.w)
+        rvec=np.array([msg.pose.orientation.x, msg.pose.orientation.y, msg.pose.orientation.z])*theta/sin(theta/2)
 
         #-- Obtain the rotation matrix tag->camera
         R_ct    = np.matrix(cv2.Rodrigues(rvec)[0])
@@ -126,8 +146,9 @@ class IBVS:
         #-- Obtain the corners position in the image
         corners=np.reshape(np.array([msg.corners]), (4, 2), 'C')
         
-        #-- calcul de la matrice d'intération courante et du vecteur erreur
-        s=np.dot(self.camera_matrix_inv, np.concatenate((corners.T, np.array([[1, 1, 1, 1]])), axis=0)) #positions courantes des coins du marqueurs dans le plan image         
+        #-- calcul de la matrice d'intération courante et du vecteur erreur         
+        s=np.dot(self.camera_matrix_inv, np.concatenate((corners.T, np.array([[1, 1, 1, 1]])), axis=0)) #positions courantes des coins du marqueurs dans le plan image
+        # s=np.dot(self.R_vf, np.dot(self.camera_matrix_inv, np.concatenate((corners.T, np.array([[1, 1, 1, 1]])), axis=0)))
         Z=np.diag(np.dot((1/s).T, np.dot(R_tc, self.corners_tag.T)+np.array([tvec]).T)/3) #position Z des coins du marqueurs dans le repère caméra
 
         self.L_courante[0:7:2, 0]=-1/Z #mise à jour de la matrice d'interaction à partir des mesures images

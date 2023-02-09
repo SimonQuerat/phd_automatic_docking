@@ -1,30 +1,32 @@
 POUR LANCER LA SIMULATION :
 
-#lancer noeud ROS master
-roscore 
-
-#lancer le monde gazebo +drone+plateforme
+#lancer le monde gazebo +drone +plateforme
 roslaunch docking drone_world.launch 
 
 #lancer le noeud ROS qui contrôle en position la plateforme
 rosrun platform_control sinusoid_pos.py 
 
-#appeler le service qui reset la position de la plateforme
-rosservice call /mobile_platform/reset_joints true 
-
 #lancer ardupilot pour le drone
 sim_vehicle.py -v ArduCopter -f gazebo-iris --console -m --streamrate=20 
 
-#lance le noeuds mavros qui est l'interface entre les commandes de l'utilisateur et les commande mavlink pour ardupilot
+#lancer le noeuds mavros qui est l'interface entre les commandes de l'utilisateur et les commande mavlink pour ardupilot
 roslaunch drone_control apm.launch 
-
-#Affichage caméra
-rosrun drone_gazebo camera_view.py 
 
 #suivi de plateforme IBVS
 roslaunch drone_control autopilot.launch 
 
+BONUS :
+
+#appeler le service qui reset la position de la plateforme
+rosservice call /mobile_platform/reset_joints true 
+
+#Affichage caméra
+rosrun drone_gazebo camera_view.py 
+
 COMMANDES ROS :
+
+#lancer noeud ROS master
+roscore 
 
 #lister les topics existants
 rostopic list 
@@ -44,6 +46,3 @@ rostopic pub <nom du topic> +tab
 #appeler un service
 rosservice call <nom du service> +arg 
 
-MODIFICATIONS HORS WORKSPACE :
-
-gazebo iris dans dossier ardupilot ?
